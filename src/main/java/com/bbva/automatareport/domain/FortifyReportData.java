@@ -1,49 +1,145 @@
 package com.bbva.automatareport.domain;
 
 import java.util.List;
-import java.util.Map;
 
 public class FortifyReportData {
+	private String applicationName;
+	private String applicationCode;
 	private List<String> listOfFiles;
-	private String resumeScan;
-	private Map<Level,List<VulnerabilityResume>> vulnerabilitiesDetectedResume;
-	private Map<Level,List<VulnerabilityDetails>> vulnerabilitiesDetectedDetails;
+	private String numFiles;
+	private String numLines;
+	private List<VulnerabilityResume> vulnerabilitiesCriticDetectedResume;
+	private List<VulnerabilityDetails> vulnerabilitiesCriticDetectedDetails;
+	private List<VulnerabilityResume> vulnerabilitiesHighDetectedResume;
+	private List<VulnerabilityDetails> vulnerabilitiesHighDetectedDetails;
+	private List<VulnerabilityResume> vulnerabilitiesMediumDetectedResume;
+	private List<VulnerabilityDetails> vulnerabilitiesMediumDetectedDetails;
+	private List<VulnerabilityResume> vulnerabilitiesLowDetectedResume;
+	private List<VulnerabilityDetails> vulnerabilitiesLowDetectedDetails;
+	private Integer numCritic;
+	private Integer numHigh;
+	private Integer numMedium;
+	private Integer numLow;
+	public void calculateNumOfVulenrabilities() {
+		numCritic=0;
+		numHigh=0;
+		numMedium=0;
+		numLow=0;
+		for (VulnerabilityResume resume : vulnerabilitiesCriticDetectedResume) {
+			numCritic+=resume.getCount();
+		}
+		for (VulnerabilityResume resume : vulnerabilitiesHighDetectedResume) {
+			numHigh+=resume.getCount();
+		}
+		for (VulnerabilityResume resume : vulnerabilitiesMediumDetectedResume) {
+			numMedium+=resume.getCount();
+		}
+		for (VulnerabilityResume resume : vulnerabilitiesLowDetectedResume) {
+			numLow+=resume.getCount();
+		}
+	}
 	public List<String> getListOfFiles() {
 		return listOfFiles;
 	}
 	public void setListOfFiles(List<String> listOfFiles) {
 		this.listOfFiles = listOfFiles;
+	}	
+	public String getNumFiles() {
+		return numFiles;
 	}
-	public String getResumeScan() {
-		return resumeScan;
+	public void setNumFiles(String numFiles) {
+		this.numFiles = numFiles;
 	}
-	public void setResumeScan(String resumeScan) {
-		this.resumeScan = resumeScan;
+	public String getNumLines() {
+		return numLines;
 	}
-	public Map<Level, List<VulnerabilityResume>> getVulnerabilitiesDetectedResume() {
-		return vulnerabilitiesDetectedResume;
+	public void setNumLines(String numLines) {
+		this.numLines = numLines;
 	}
-	public void setVulnerabilitiesDetectedResume(
-			Map<Level, List<VulnerabilityResume>> vulnerabilitiesDetectedResume) {
-		this.vulnerabilitiesDetectedResume = vulnerabilitiesDetectedResume;
+	public String getApplicationName() {
+		return applicationName;
 	}
-	public Map<Level, List<VulnerabilityDetails>> getVulnerabilitiesDetectedDetails() {
-		return vulnerabilitiesDetectedDetails;
+	public void setApplicationName(String applicationName) {
+		this.applicationName = applicationName;
 	}
-	public void setVulnerabilitiesDetectedDetails(
-			Map<Level, List<VulnerabilityDetails>> vulnerabilitiesDetectedDetails) {
-		this.vulnerabilitiesDetectedDetails = vulnerabilitiesDetectedDetails;
+	public String getApplicationCode() {
+		return applicationCode;
 	}
-	@Override
-	public String toString() {
-		return "FortifyReportData [listOfFiles=" + listOfFiles
-				+ ", resumeScan=" + resumeScan
-				+ ", vulnerabilitiesDetectedResume="
-				+ vulnerabilitiesDetectedResume
-				+ ", vulnerabilitiesDetectedDetails="
-				+ vulnerabilitiesDetectedDetails + "]";
+	public void setApplicationCode(String applicationCode) {
+		this.applicationCode = applicationCode;
 	}
-	
+	public List<VulnerabilityResume> getVulnerabilitiesCriticDetectedResume() {
+		return vulnerabilitiesCriticDetectedResume;
+	}
+	public void setVulnerabilitiesCriticDetectedResume(List<VulnerabilityResume> vulnerabilitiesCriticDetectedResume) {
+		this.vulnerabilitiesCriticDetectedResume = vulnerabilitiesCriticDetectedResume;
+	}
+	public List<VulnerabilityDetails> getVulnerabilitiesCriticDetectedDetails() {
+		return vulnerabilitiesCriticDetectedDetails;
+	}
+	public void setVulnerabilitiesCriticDetectedDetails(List<VulnerabilityDetails> vulnerabilitiesCriticDetectedDetails) {
+		this.vulnerabilitiesCriticDetectedDetails = vulnerabilitiesCriticDetectedDetails;
+	}
+	public List<VulnerabilityResume> getVulnerabilitiesHighDetectedResume() {
+		return vulnerabilitiesHighDetectedResume;
+	}
+	public void setVulnerabilitiesHighDetectedResume(List<VulnerabilityResume> vulnerabilitiesHighDetectedResume) {
+		this.vulnerabilitiesHighDetectedResume = vulnerabilitiesHighDetectedResume;
+	}
+	public List<VulnerabilityDetails> getVulnerabilitiesHighDetectedDetails() {
+		return vulnerabilitiesHighDetectedDetails;
+	}
+	public void setVulnerabilitiesHighDetectedDetails(List<VulnerabilityDetails> vulnerabilitiesHighDetectedDetails) {
+		this.vulnerabilitiesHighDetectedDetails = vulnerabilitiesHighDetectedDetails;
+	}
+	public List<VulnerabilityResume> getVulnerabilitiesMediumDetectedResume() {
+		return vulnerabilitiesMediumDetectedResume;
+	}
+	public void setVulnerabilitiesMediumDetectedResume(List<VulnerabilityResume> vulnerabilitiesMediumDetectedResume) {
+		this.vulnerabilitiesMediumDetectedResume = vulnerabilitiesMediumDetectedResume;
+	}
+	public List<VulnerabilityDetails> getVulnerabilitiesMediumDetectedDetails() {
+		return vulnerabilitiesMediumDetectedDetails;
+	}
+	public void setVulnerabilitiesMediumDetectedDetails(List<VulnerabilityDetails> vulnerabilitiesMediumDetectedDetails) {
+		this.vulnerabilitiesMediumDetectedDetails = vulnerabilitiesMediumDetectedDetails;
+	}
+	public List<VulnerabilityResume> getVulnerabilitiesLowDetectedResume() {
+		return vulnerabilitiesLowDetectedResume;
+	}
+	public void setVulnerabilitiesLowDetectedResume(List<VulnerabilityResume> vulnerabilitiesLowDetectedResume) {
+		this.vulnerabilitiesLowDetectedResume = vulnerabilitiesLowDetectedResume;
+	}
+	public List<VulnerabilityDetails> getVulnerabilitiesLowDetectedDetails() {
+		return vulnerabilitiesLowDetectedDetails;
+	}
+	public void setVulnerabilitiesLowDetectedDetails(List<VulnerabilityDetails> vulnerabilitiesLowDetectedDetails) {
+		this.vulnerabilitiesLowDetectedDetails = vulnerabilitiesLowDetectedDetails;
+	}
+	public Integer getNumCritic() {
+		return numCritic;
+	}
+	public void setNumCritic(Integer numCritic) {
+		this.numCritic = numCritic;
+	}
+	public Integer getNumHigh() {
+		return numHigh;
+	}
+	public void setNumHigh(Integer numHigh) {
+		this.numHigh = numHigh;
+	}
+	public Integer getNumMedium() {
+		return numMedium;
+	}
+	public void setNumMedium(Integer numMedium) {
+		this.numMedium = numMedium;
+	}
+	public Integer getNumLow() {
+		return numLow;
+	}
+	public void setNumLow(Integer numLow) {
+		this.numLow = numLow;
+	}	
 	
 	
 	

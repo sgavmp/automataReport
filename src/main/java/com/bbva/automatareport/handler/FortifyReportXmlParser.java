@@ -1,9 +1,11 @@
 package com.bbva.automatareport.handler;
 
 import java.io.IOException;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -20,9 +22,8 @@ import javax.xml.xpath.XPathFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.xml.sax.helpers.DefaultHandler;
-import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
 
 import com.bbva.automatareport.domain.FortifyReportData;
 import com.bbva.automatareport.domain.Issue;
@@ -32,8 +33,10 @@ import com.bbva.automatareport.domain.VulnerabilityResume;
 
 public class FortifyReportXmlParser extends DefaultHandler {
 	private FortifyReportData data;
+	private String path;
 	
-	public FortifyReportXmlParser() {
+	public FortifyReportXmlParser(String path) {
+		this.path = path;
 		data = new FortifyReportData();
 	}
 	
@@ -43,33 +46,39 @@ public class FortifyReportXmlParser extends DefaultHandler {
 					.newInstance();
 			DocumentBuilder builder;
 			builder = factory.newDocumentBuilder();
-			Document doc = builder.parse(ClassLoader.getSystemResource("xml/RC_PALTA_VAR-17OCT2014_01_-_Fortify_Scan_Summary.xml").getFile());
+			Document doc = builder.parse(path);
 			XPathFactory xPathfactory = XPathFactory.newInstance();
 			XPath xpath = xPathfactory.newXPath();
+			//Numero ficheros
+			XPathExpression expr = xpath.compile("/ReportDefinition/ReportSection[Title='Detailed Project Summary']/SubSection[Title='Numero Ficheros']/Text");
+			String numFiles = (String)expr.evaluate(doc, XPathConstants.STRING);
+			data.setNumFiles(NumberFormat.getNumberInstance(Locale.ITALY).format(Integer.valueOf(numFiles)));
+			//Numero lineas
+			expr = xpath.compile("/ReportDefinition/ReportSection[Title='Detailed Project Summary']/SubSection[Title='Lineas']/Text");
+			String lineas = (String)expr.evaluate(doc, XPathConstants.STRING);
+			data.setNumLines(NumberFormat.getNumberInstance(Locale.ITALY).format(Integer.valueOf(lineas)));
 			//Lista de ficheros analizados
-			XPathExpression expr = xpath.compile("/ReportDefinition/ReportSection[Title='Detailed Project Summary']/SubSection[Title='Files Scanned']/Text");
+			expr = xpath.compile("/ReportDefinition/ReportSection[Title='Detailed Project Summary']/SubSection[Title='Lista Ficheros']/Text");
 			String files = (String)expr.evaluate(doc, XPathConstants.STRING);
-			Matcher m = Pattern.compile("(?m)^[\\w\\s]+\\.\\w+").matcher(files);
+			Matcher m = Pattern.compile("(?m)^([a-zA-Z0-9_.-]*)?(\\/[a-zA-Z0-9_.-]+)+\\/?").matcher(files);
 			data.setListOfFiles(new ArrayList<String>());
 			while (m.find()) {
 			   data.getListOfFiles().add(m.group());
 			}
 			////Resumen ejecutivo
-			doc = builder.parse(ClassLoader.getSystemResource("xml/RC_PALTA_VAR-17OCT2014_01_-_Informe_ejecutivo.xml").getFile());
-			//Resumen del escaneo
-			expr = xpath.compile("/ReportDefinition/ReportSection[Title='Report Overview']/SubSection[Title='Resumen del escaneo']/Text");
-			data.setResumeScan((String)expr.evaluate(doc, XPathConstants.STRING));
 			//Resumen de vulnerabilidades detectadas
 			//Nivel critico
-			expr = xpath.compile("count(//ReportDefinition/ReportSection[Title='Vulnerabilidades']/SubSection[Title='Tabla de vulnerabilidades nivel crítico']/IssueListing/Chart/GroupingSection)");
+			expr = xpath.compile("count(//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.1 Vulnerabilidades de criticidad crítica']/IssueListing/Chart/GroupingSection)");
 			Integer numCriticas = Integer.parseInt((String)expr.evaluate(doc, XPathConstants.STRING));
 			Map<String,Integer> vunerabilidadesCriticas = new HashMap<String, Integer>();
-			expr = xpath.compile("//ReportDefinition/ReportSection[Title='Vulnerabilidades']/SubSection[Title='Tabla de vulnerabilidades nivel crítico']/IssueListing/Chart/GroupingSection");
+			expr = xpath.compile("//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.1 Vulnerabilidades de criticidad crítica']/IssueListing/Chart/GroupingSection");
 			NodeList listaVun = (NodeList) expr.evaluate(doc, XPathConstants.NODESET);
+			expr = xpath.compile("//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.1 Vulnerabilidades de criticidad crítica']/IssueListing/Chart/GroupingSection/groupTitle");
+			NodeList listaVunName = (NodeList) expr.evaluate(doc, XPathConstants.NODESET);
 			List<VulnerabilityResume> resumesCritic = new ArrayList<VulnerabilityResume>();
 			for (int i=0;i<numCriticas;i++) {
 				Integer countVun = Integer.parseInt(listaVun.item(i).getAttributes().getNamedItem("count").getNodeValue());
-				String nameVun = listaVun.item(i).getTextContent().trim();
+				String nameVun = listaVunName.item(i).getTextContent().trim();
 				vunerabilidadesCriticas.put(nameVun, countVun);
 				VulnerabilityResume temp = new VulnerabilityResume();
 				temp.setCount(countVun);
@@ -78,15 +87,17 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				resumesCritic.add(temp);
 			}
 			//Nivel alto
-			expr = xpath.compile("count(//ReportDefinition/ReportSection[Title='Vulnerabilidades']/SubSection[Title='Tabla de vulnerabilidades nivel alto']/IssueListing/Chart/GroupingSection)");
+			expr = xpath.compile("count(//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.2 Vulnerabilidades de criticidad alta']/IssueListing/Chart/GroupingSection)");
 			Integer numAltas = Integer.parseInt((String)expr.evaluate(doc, XPathConstants.STRING));
 			Map<String,Integer> vunerabilidadesAltas = new HashMap<String, Integer>();
-			expr = xpath.compile("//ReportDefinition/ReportSection[Title='Vulnerabilidades']/SubSection[Title='Tabla de vulnerabilidades nivel alto']/IssueListing/Chart/GroupingSection");
+			expr = xpath.compile("//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.2 Vulnerabilidades de criticidad alta']/IssueListing/Chart/GroupingSection");			
 			listaVun = (NodeList) expr.evaluate(doc, XPathConstants.NODESET);
+			expr = xpath.compile("//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.2 Vulnerabilidades de criticidad alta']/IssueListing/Chart/GroupingSection/groupTitle");
+			listaVunName = (NodeList) expr.evaluate(doc, XPathConstants.NODESET);
 			List<VulnerabilityResume> resumesHigh = new ArrayList<VulnerabilityResume>();
 			for (int i=0;i<numAltas;i++) {
 				Integer countVun = Integer.parseInt(listaVun.item(i).getAttributes().getNamedItem("count").getNodeValue());
-				String nameVun = listaVun.item(i).getTextContent().trim();
+				String nameVun = listaVunName.item(i).getTextContent().trim();
 				vunerabilidadesAltas.put(nameVun, countVun);
 				VulnerabilityResume temp = new VulnerabilityResume();
 				temp.setCount(countVun);
@@ -95,15 +106,17 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				resumesHigh.add(temp);
 			}
 			//Nivel medio
-			expr = xpath.compile("count(//ReportDefinition/ReportSection[Title='Vulnerabilidades']/SubSection[Title='Tabla de vulnerabilidades nivel medio']/IssueListing/Chart/GroupingSection)");
+			expr = xpath.compile("count(//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.3 Vulnerabilidades de criticidad media']/IssueListing/Chart/GroupingSection)");
 			Integer numMedias = Integer.parseInt((String)expr.evaluate(doc, XPathConstants.STRING));
 			Map<String,Integer> vunerabilidadesMedia = new HashMap<String, Integer>();
-			expr = xpath.compile("//ReportDefinition/ReportSection[Title='Vulnerabilidades']/SubSection[Title='Tabla de vulnerabilidades nivel medio']/IssueListing/Chart/GroupingSection");
+			expr = xpath.compile("//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.3 Vulnerabilidades de criticidad media']/IssueListing/Chart/GroupingSection");
 			listaVun = (NodeList) expr.evaluate(doc, XPathConstants.NODESET);
+			expr = xpath.compile("//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.3 Vulnerabilidades de criticidad media']/IssueListing/Chart/GroupingSection/groupTitle");
+			listaVunName = (NodeList) expr.evaluate(doc, XPathConstants.NODESET);
 			List<VulnerabilityResume> resumesMedium = new ArrayList<VulnerabilityResume>();
 			for (int i=0;i<numMedias;i++) {
 				Integer countVun = Integer.parseInt(listaVun.item(i).getAttributes().getNamedItem("count").getNodeValue());
-				String nameVun = listaVun.item(i).getTextContent().trim();
+				String nameVun = listaVunName.item(i).getTextContent().trim();
 				vunerabilidadesMedia.put(nameVun, countVun);
 				VulnerabilityResume temp = new VulnerabilityResume();
 				temp.setCount(countVun);
@@ -112,15 +125,17 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				resumesMedium.add(temp);
 			}
 			//Nivel bajo
-			expr = xpath.compile("count(//ReportDefinition/ReportSection[Title='Vulnerabilidades']/SubSection[Title='Tabla de vulnerabilidades nivel bajo']/IssueListing/Chart/GroupingSection)");
+			expr = xpath.compile("count(//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.4 Vulnerabilidades de criticidad baja']/IssueListing/Chart/GroupingSection)");
 			Integer numBajas = Integer.parseInt((String)expr.evaluate(doc, XPathConstants.STRING));
 			Map<String,Integer> vunerabilidadesBajas = new HashMap<String, Integer>();
-			expr = xpath.compile("//ReportDefinition/ReportSection[Title='Vulnerabilidades']/SubSection[Title='Tabla de vulnerabilidades nivel bajo']/IssueListing/Chart/GroupingSection");
+			expr = xpath.compile("//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.4 Vulnerabilidades de criticidad baja']/IssueListing/Chart/GroupingSection");
 			listaVun = (NodeList) expr.evaluate(doc, XPathConstants.NODESET);
+			expr = xpath.compile("//ReportDefinition/ReportSection[Title='1. Vulnerabilidades']/SubSection[Title='1.4 Vulnerabilidades de criticidad baja']/IssueListing/Chart/GroupingSection/groupTitle");
+			listaVunName = (NodeList) expr.evaluate(doc, XPathConstants.NODESET);
 			List<VulnerabilityResume> resumesLow = new ArrayList<VulnerabilityResume>();
 			for (int i=0;i<numBajas;i++) {
 				Integer countVun = Integer.parseInt(listaVun.item(i).getAttributes().getNamedItem("count").getNodeValue());
-				String nameVun = listaVun.item(i).getTextContent().trim();
+				String nameVun = listaVunName.item(i).getTextContent().trim();
 				vunerabilidadesBajas.put(nameVun, countVun);
 				VulnerabilityResume temp = new VulnerabilityResume();
 				temp.setCount(countVun);
@@ -128,14 +143,11 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				temp.setName(nameVun);
 				resumesLow.add(temp);
 			}
-			data.setVulnerabilitiesDetectedResume(new HashMap<Level, List<VulnerabilityResume>>());
-			data.getVulnerabilitiesDetectedResume().put(Level.CRITIC, resumesCritic);
-			data.getVulnerabilitiesDetectedResume().put(Level.HIGH, resumesHigh);
-			data.getVulnerabilitiesDetectedResume().put(Level.MEDIUM, resumesMedium);
-			data.getVulnerabilitiesDetectedResume().put(Level.LOW, resumesLow);
+			data.setVulnerabilitiesCriticDetectedResume(resumesCritic);
+			data.setVulnerabilitiesHighDetectedResume(resumesHigh);
+			data.setVulnerabilitiesMediumDetectedResume(resumesMedium);
+			data.setVulnerabilitiesLowDetectedResume(resumesLow);
 			
-			////Resumen Tecnico
-			doc = builder.parse(ClassLoader.getSystemResource("xml/RC_PALTA_VAR-17OCT2014_01_-_Informe_tecnico.xml").getFile());
 			//Vunerabilidades detectadas
 			//Nivel Critico
 			List<VulnerabilityDetails> detailsCritic = new ArrayList<VulnerabilityDetails>();
@@ -145,7 +157,6 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				temp.setLevel(Level.CRITIC);
 				temp.setCount(vunerabilidadesCriticas.get(vun));
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']");
-				Node vunera = (Node) expr.evaluate(doc, XPathConstants.NODE);
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/MajorAttributeSummary/MetaInfo[Name='Explanation']/Value");
 				temp.setExplication(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/MajorAttributeSummary/MetaInfo[Name='Recommendations']/Value");
@@ -155,13 +166,12 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				List<Issue> listIssue = new ArrayList<Issue>();
 				for (int i = 1;i<=issues.getLength();i++) {
 					Issue issueTemp = new Issue();
-					Node issue = issues.item(i);
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Category");
 					issueTemp.setCategory(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Folder");
 					issueTemp.setFolder(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Friority");
-					issueTemp.setFriority(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
+					issueTemp.setPriority(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Kingdom");
 					issueTemp.setKingdom(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Abstract");
@@ -170,6 +180,8 @@ public class FortifyReportXmlParser extends DefaultHandler {
 					issueTemp.setAnalysis(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/FileName");
 					issueTemp.setFile(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
+					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/FilePath");
+					issueTemp.setPath(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/LineStart");
 					issueTemp.setLineStart(Integer.parseInt(((String) expr.evaluate(doc,XPathConstants.STRING)).trim()));
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/Snippet");
@@ -187,7 +199,6 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				temp.setLevel(Level.HIGH);
 				temp.setCount(vunerabilidadesAltas.get(vun));
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']");
-				Node vunera = (Node) expr.evaluate(doc, XPathConstants.NODE);
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/MajorAttributeSummary/MetaInfo[Name='Explanation']/Value");
 				temp.setExplication(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/MajorAttributeSummary/MetaInfo[Name='Recommendations']/Value");
@@ -197,13 +208,12 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				List<Issue> listIssue = new ArrayList<Issue>();
 				for (int i = 1;i<=issues.getLength();i++) {
 					Issue issueTemp = new Issue();
-					Node issue = issues.item(i);
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Category");
 					issueTemp.setCategory(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Folder");
 					issueTemp.setFolder(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Friority");
-					issueTemp.setFriority(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
+					issueTemp.setPriority(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Kingdom");
 					issueTemp.setKingdom(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Abstract");
@@ -212,6 +222,8 @@ public class FortifyReportXmlParser extends DefaultHandler {
 					issueTemp.setAnalysis(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/FileName");
 					issueTemp.setFile(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
+					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/FilePath");
+					issueTemp.setPath(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/LineStart");
 					issueTemp.setLineStart(Integer.parseInt(((String) expr.evaluate(doc,XPathConstants.STRING)).trim()));
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/Snippet");
@@ -229,7 +241,6 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				temp.setLevel(Level.MEDIUM);
 				temp.setCount(vunerabilidadesMedia.get(vun));
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']");
-				Node vunera = (Node) expr.evaluate(doc, XPathConstants.NODE);
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/MajorAttributeSummary/MetaInfo[Name='Explanation']/Value");
 				temp.setExplication(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/MajorAttributeSummary/MetaInfo[Name='Recommendations']/Value");
@@ -239,13 +250,12 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				List<Issue> listIssue = new ArrayList<Issue>();
 				for (int i = 1;i<=issues.getLength();i++) {
 					Issue issueTemp = new Issue();
-					Node issue = issues.item(i);
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Category");
 					issueTemp.setCategory(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Folder");
 					issueTemp.setFolder(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Friority");
-					issueTemp.setFriority(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
+					issueTemp.setPriority(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Kingdom");
 					issueTemp.setKingdom(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Abstract");
@@ -254,6 +264,8 @@ public class FortifyReportXmlParser extends DefaultHandler {
 					issueTemp.setAnalysis(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/FileName");
 					issueTemp.setFile(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
+					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/FilePath");
+					issueTemp.setPath(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/LineStart");
 					issueTemp.setLineStart(Integer.parseInt(((String) expr.evaluate(doc,XPathConstants.STRING)).trim()));
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/Snippet");
@@ -271,7 +283,6 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				temp.setLevel(Level.LOW);
 				temp.setCount(vunerabilidadesBajas.get(vun));
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']");
-				Node vunera = (Node) expr.evaluate(doc, XPathConstants.NODE);
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/MajorAttributeSummary/MetaInfo[Name='Explanation']/Value");
 				temp.setExplication(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 				expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/MajorAttributeSummary/MetaInfo[Name='Recommendations']/Value");
@@ -281,13 +292,12 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				List<Issue> listIssue = new ArrayList<Issue>();
 				for (int i = 1;i<=issues.getLength();i++) {
 					Issue issueTemp = new Issue();
-					Node issue = issues.item(i);
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Category");
 					issueTemp.setCategory(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Folder");
 					issueTemp.setFolder(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Friority");
-					issueTemp.setFriority(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
+					issueTemp.setPriority(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Kingdom");
 					issueTemp.setKingdom(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Abstract");
@@ -296,6 +306,8 @@ public class FortifyReportXmlParser extends DefaultHandler {
 					issueTemp.setAnalysis(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/FileName");
 					issueTemp.setFile(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
+					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/FilePath");
+					issueTemp.setPath(((String) expr.evaluate(doc,XPathConstants.STRING)).trim());
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/LineStart");
 					issueTemp.setLineStart(Integer.parseInt(((String) expr.evaluate(doc,XPathConstants.STRING)).trim()));
 					expr = xpath.compile("//*/GroupingSection[groupTitle='" + vun + "']/Issue[" + i +"]/Primary/Snippet");
@@ -305,11 +317,10 @@ public class FortifyReportXmlParser extends DefaultHandler {
 				temp.setListOfIssues(listIssue);
 				detailsLow.add(temp);
 			}
-			data.setVulnerabilitiesDetectedDetails(new HashMap<Level, List<VulnerabilityDetails>>());
-			data.getVulnerabilitiesDetectedDetails().put(Level.CRITIC, detailsCritic);
-			data.getVulnerabilitiesDetectedDetails().put(Level.HIGH, detailsHigh);
-			data.getVulnerabilitiesDetectedDetails().put(Level.MEDIUM, detailsMedium);
-			data.getVulnerabilitiesDetectedDetails().put(Level.LOW, detailsLow);
+			data.setVulnerabilitiesCriticDetectedDetails(detailsCritic);
+			data.setVulnerabilitiesHighDetectedDetails(detailsHigh);
+			data.setVulnerabilitiesMediumDetectedDetails(detailsMedium);
+			data.setVulnerabilitiesLowDetectedDetails(detailsLow);
 			
 		} catch (ParserConfigurationException e) {
 			// TODO Auto-generated catch block

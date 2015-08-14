@@ -10,14 +10,30 @@ jar {
     }
 }
 
+//create a single Jar with all dependencies
+task fatJar(type: Jar) {
+	manifest {
+        attributes 'Implementation-Title': 'xmlToReport',  
+        	'Implementation-Version': version,
+        	'Main-Class': 'com.bbva.automatareport.MainAutomataReport'
+    }
+    baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    compile group: 'commons-collections', name: 'commons-collections', version: '3.2'
+	compile fileTree(dir: 'lib', include: '*.jar')
     compile 'org.docx4j:docx4j:3.2.1'
-    testCompile group: 'junit', name: 'junit', version: '4.+'
+    compile 'fr.opensagres.xdocreport:xdocreport:1.0.5'
+    compile 'fr.opensagres.xdocreport:org.apache.poi.xwpf.converter.pdf:1.0.5'
+    compile 'org.apache.velocity:velocity:1.7'
+    compile 'oro:oro:2.0.8'
+    compile 'jfreechart:jfreechart:1.0.0'
 }
 
 test {
