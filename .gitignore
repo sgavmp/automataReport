@@ -4,3 +4,5 @@ CH_BANCAMOVILANDROID_03_merged.xml
 *.png
 *.pdf
 *.odt
+.gradle
+.settings
